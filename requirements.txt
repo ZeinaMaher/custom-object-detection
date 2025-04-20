@@ -1,0 +1,7 @@
+numpy
+torch 
+opencv-python-headless 
+pyyaml 
+matplotlib
+tqdm
+pillow
