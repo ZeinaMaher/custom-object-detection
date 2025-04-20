@@ -5,6 +5,10 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 
+def collate_fn(batch):
+    imgs, labels, filenames = zip(*batch)
+    return torch.stack(imgs), labels, filenames
+
 class CustomDataset(Dataset):
     def __init__(self, img_dir, labels_dir, shuffle, normalize, img_size=(480,480)):
         """
@@ -52,7 +56,7 @@ class CustomDataset(Dataset):
 
         # preprocessing
         img, labels= self.preprocess(img, labels)
-        return img, labels
+        return img, labels ,file_name  
 
     def _resize_image(self, img):
         return img
