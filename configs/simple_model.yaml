@@ -1,15 +1,20 @@
 backbone:
   type: "sequential"
   layers:
-    - ["conv", 3, 16, 3, 1, 1]  # [type, in_c, out_c, kernel, stride, padding]
+    - ["conv", 3, 16, 3, 1, 1] # [type, in_c, out_c, kernel, stride, padding]
     - ["relu"]
-    - ["maxpool", 2]
+    - ["maxpool", 2]     # 480 → 240
     - ["conv", 16, 32, 3, 1, 1]
     - ["relu"]
-    - ["maxpool", 2]
-
+    - ["maxpool", 2]     # 240 → 120
+    - ["conv", 32, 64, 3, 1, 1]
+    - ["relu"]
+    - ["maxpool", 2]     # 120 → 60
+    - ["conv", 64, 128, 3, 1, 1]
+    - ["relu"]
+    - ["maxpool", 2]     # 60 → 30
 head:
   type: "detection"
   args:
-    in_channels: 32
+    in_channels: 128
     num_classes: 2
