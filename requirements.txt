@@ -3,5 +3,4 @@ opencv-python-headless
 pyyaml
 matplotlib
 tqdm
-<<<<<<< HEAD
 pillow
