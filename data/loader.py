@@ -63,7 +63,6 @@ class CustomDataset(Dataset):
     
     def _to_tensor(self, img, labels):
         """convert numpy arrays to tensors"""
-        print(img)
         img = img.transpose((2, 0, 1)) #swap color axis (HWC to CHW)
         img= torch.from_numpy(img)
 
