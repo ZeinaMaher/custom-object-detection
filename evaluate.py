@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from model.arch import ModelBuilder
 from torch.utils.data import DataLoader
 from data.loader import CustomDataset, collate_fn
@@ -11,7 +12,7 @@ def evaluate(model, dataloader, device, num_classes, conf_threshold=0.5, iou_thr
     all_gts = []
     
     with torch.no_grad():
-        for imgs, labels, filenames in dataloader:
+        for imgs, labels, filenames in tqdm(dataloader):
             imgs = imgs.to(device)
 
             # Get model predictions and apply postprocessing
@@ -24,10 +25,11 @@ def evaluate(model, dataloader, device, num_classes, conf_threshold=0.5, iou_thr
             all_preds.extend(batch_detections)  # Assuming detections are in the format [x1, y1, x2, y2, score, class_id]
             all_gts.extend(gt_boxes)  # Store ground truth labels
 
-            print(f"Predictions for {filenames}: {batch_detections}")  # For debugging/inspection
+            # print(f"Predictions for {filenames}: {batch_detections}")  # For debugging/inspection
 
     # Flatten lists of predictions and ground truths
-    all_preds = [torch.cat(dets, dim=0) if len(dets) > 0 else torch.empty((0, 6)) for dets in all_preds]
+    # only if all_preds is a list of list of tensors
+    all_preds = [torch.cat(dets, dim=0) if isinstance(dets, list) and len(dets) > 0 else torch.empty((0, 6), device=device) for dets in all_preds]
     all_preds = torch.cat(all_preds, dim=0)
     all_gts = torch.cat(all_gts, dim=0)
 
@@ -52,8 +54,8 @@ if __name__ == "__main__":
     model, checkpoint = load_model_from_checkpoint(config_path=config_path, checkpoint_path=check_path, device=device)
 
     val_dataset = CustomDataset(
-        img_dir="./dataset/filtered_data/valid/images",
-        labels_dir="./dataset/filtered_data/valid/labels",
+        img_dir="./dataset/samples/valid/images",
+        labels_dir="./dataset/samples/valid/labels",
         shuffle=False,
         normalize=True
     )
@@ -61,4 +63,4 @@ if __name__ == "__main__":
 
     # Set the number of classes based on your dataset
     num_classes = 2  # Adjust accordingly
-    evaluate(model, val_loader, device, num_classes)
+    evaluate(model, val_loader, device, num_classes, 0)
