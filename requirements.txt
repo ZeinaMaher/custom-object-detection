@@ -1,8 +1,6 @@
 numpy
-torch 
-opencv-python-headless 
-pyyaml 
+opencv-python-headless
+pyyaml
 matplotlib
 tqdm
 pillow
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
