@@ -12,7 +12,12 @@ class DetectionHead(nn.Module):
         self.conv = nn.Conv2d(in_channels, 5 + num_classes, kernel_size=1)
 
     def forward(self, x):
-        return self.conv(x)
+        out = self.conv(x)
+        out[:, 0:2, :, :] = torch.sigmoid(out[:, 0:2, :, :])  # x_center, y_center
+        out[:, 2:4, :, :] = torch.exp(out[:, 2:4, :, :])      # width, height (optional)
+        out[:, 4:, :, :] = torch.sigmoid(out[:, 4:, :, :])    # objectness + class probs
+        return out
+
 
 class FullModel(nn.Module):
     """Wraps the backbone and head for full model control and access"""
