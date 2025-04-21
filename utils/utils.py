@@ -257,6 +257,31 @@ def apply_nms(detections, iou_thresh=0.5):
     
     return kept_boxes, kept_scores, kept_class_ids
 
+def postprocess(preds, conf_thresh=0.5, iou_thresh=0.5):
+    """
+    Post-process model predictions with confidence thresholding and NMS.
+
+    Args:
+        preds: Tensor of shape [B, 5 + num_classes, H, W] (model output)
+        conf_thresh: Confidence threshold
+        iou_thresh: IoU threshold for NMS
+
+    Returns:
+        List of detections per image: [ [x1, y1, x2, y2, score, class_id], ... ]
+    """
+    batch_detections = extract_pred(preds, conf_thresh)
+    results = []
+
+    for detections in batch_detections:
+        if detections.numel() == 0:
+            results.append(torch.empty((0, 6)))  # No detections
+            continue
+        
+        boxes, scores, class_ids = apply_nms(detections, iou_thresh)
+        detections_nms = torch.cat([boxes, scores.unsqueeze(1), class_ids.unsqueeze(1)], dim=1)
+        results.append(detections_nms)
+
+    return results
 
 if __name__ == "__main__":
 
@@ -280,29 +305,44 @@ if __name__ == "__main__":
     # print(model, checkpoint)
 
 #==================================================================================================
-# Test postprocessing function 
+# Test nms function 
 
 # Fake prediction tensor [B, 5 + num_classes, H, W]
-    B, C, H, W = 1, 5 + 3, 2, 2  # batch of 1 image, 3 classes, 2x2 grid
-    preds = torch.rand(B, C, H, W)
+    # B, C, H, W = 1, 5 + 3, 2, 2  # batch of 1 image, 3 classes, 2x2 grid
+    # preds = torch.rand(B, C, H, W)
 
-    # Force high confidence on some cells to simulate real detections
-    preds[0, 4, 0, 0] = 0.9  # objectness
-    preds[0, 5:, 0, 0] = torch.tensor([0.1, 0.8, 0.1])  # class probs
+    # # Force high confidence on some cells to simulate real detections
+    # preds[0, 4, 0, 0] = 0.9  # objectness
+    # preds[0, 5:, 0, 0] = torch.tensor([0.1, 0.8, 0.1])  # class probs
 
-    preds[0, 4, 1, 1] = 0.85
-    preds[0, 5:, 1, 1] = torch.tensor([0.6, 0.2, 0.2])
+    # preds[0, 4, 1, 1] = 0.85
+    # preds[0, 5:, 1, 1] = torch.tensor([0.6, 0.2, 0.2])
 
-    # Step 1: Extract predictions
-    detections_per_image = extract_pred(preds, conf_thresh=0.5)
+    # # Step 1: Extract predictions
+    # detections_per_image = extract_pred(preds, conf_thresh=0.5)
 
-    # Step 2: Apply NMS
-    for i, detections in enumerate(detections_per_image):
-        print(f"\nImage {i}")
-        print("Raw Detections:", detections)
+    # # Step 2: Apply NMS
+    # for i, detections in enumerate(detections_per_image):
+    #     print(f"\nImage {i}")
+    #     print("Raw Detections:", detections)
 
-        boxes, scores, class_ids = apply_nms(detections, iou_thresh=0.5)
+    #     boxes, scores, class_ids = apply_nms(detections, iou_thresh=0.5)
 
-        print("\nAfter NMS:")
-        for b, s, c in zip(boxes, scores, class_ids):
-            print(f"Box: {b.tolist()}, Score: {s.item():.2f}, Class: {int(c.item())}")
+    #     print("\nAfter NMS:")
+    #     for b, s, c in zip(boxes, scores, class_ids):
+    #         print(f"Box: {b.tolist()}, Score: {s.item():.2f}, Class: {int(c.item())}")
+
+#========================================================================================
+#test postprocessing function
+
+    dummy_preds = torch.tensor([[[[0.5, 0.3], [0.6, 0.2]],     # x_center
+                              [[0.5, 0.3], [0.6, 0.2]],     # y_center
+                              [[0.4, 0.2], [0.3, 0.1]],     # width
+                              [[0.4, 0.2], [0.3, 0.1]],     # height
+                              [[0.9, 0.1], [0.8, 0.2]],     # objectness
+                              [[0.8, 0.2], [0.9, 0.1]],     # class_0 score
+                              [[0.1, 0.9], [0.05, 0.95]]]], # class_1 score
+                              dtype=torch.float32)  # shape [1, 7, 2, 2]
+
+    results = postprocess(dummy_preds, conf_thresh=0.3, iou_thresh=0.5)
+    print(results)
