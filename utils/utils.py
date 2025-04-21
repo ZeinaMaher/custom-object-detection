@@ -146,6 +146,10 @@ def extract_pred(preds, conf_thresh=0.5):
         conf= conf[mask]
         class_ids= class_ids[mask]
 
+        if bboxes.shape[0] == 0:
+            all_detections.append(torch.empty((0, 6), device=preds.device))
+            continue
+
         boxes_xyxy = torch.stack([torch.tensor(xywh_to_xyxy(box), device=box.device) for box in bboxes], dim=0)
 
         # Final format: [x1, y1, x2, y2, score, class_id]
@@ -257,7 +261,7 @@ def apply_nms(detections, iou_thresh=0.5):
     
     return kept_boxes, kept_scores, kept_class_ids
 
-def postprocess(preds, conf_thresh=0.5, iou_thresh=0.5):
+def postprocess_pred(preds, conf_thresh=0.5, iou_thresh=0.5):
     """
     Post-process model predictions with confidence thresholding and NMS.
 
@@ -282,6 +286,36 @@ def postprocess(preds, conf_thresh=0.5, iou_thresh=0.5):
         results.append(detections_nms)
 
     return results
+
+def postprocess_gt(batch_labels, device):
+    """
+    Convert YOLO-format labels to [x1, y1, x2, y2, class_id] per image.
+
+    Args:
+        batch_labels: Tuple of tensors (1 per image) with shape [N, 5] each: [class_id, cx, cy, w, h]
+        device: torch.device
+
+    Returns:
+        List of tensors per image: [ [x1, y1, x2, y2, class_id], ... ]
+    """
+    processed = []
+
+    for labels in batch_labels:
+        if labels.numel() == 0:
+            processed.append(torch.empty((0, 5), device=device))
+            continue
+
+        labels = labels.to(device)
+        class_ids = labels[:, 0]
+        cx, cy, w, h = labels[:, 1], labels[:, 2], labels[:, 3], labels[:, 4]
+        x1 = cx - w / 2
+        y1 = cy - h / 2
+        x2 = cx + w / 2
+        y2 = cy + h / 2
+        boxes = torch.stack([x1, y1, x2, y2, class_ids], dim=1)
+        processed.append(boxes)
+
+    return processed
 
 if __name__ == "__main__":
 

@@ -1,4 +1,4 @@
-from utils import iou
+from utils.utils import iou
 import torch
 
 def cal_detection_result(preds, gts, num_classes, iou_threshold=0.5):
