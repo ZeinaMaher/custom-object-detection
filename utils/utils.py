@@ -114,45 +114,64 @@ def iou(box1, box2):
 
 def extract_pred(preds, conf_thresh=0.5):
     """
-    Extract the prediction from the model output for each image
+    Extract the prediction from the model output for each image.
 
-    Arg:
-    preds: Tensor of shape [B, 5 + num_classes, H, W]
-    conf_thresh: Confidence threshold to filter predictions
+    Args:
+        preds: Tensor of shape [B, 5 + num_classes, H, W]
+        conf_thresh: Confidence threshold to filter predictions
 
     Returns:
-    detections: List of detections per image, each as [x1, y1, x2, y2, score, class_id]
+        detections: List of detections per image, each as [x1, y1, x2, y2, score, class_id]
     """
     B, C, H, W = preds.shape
     num_classes = C - 5
+
     preds = preds.permute(0, 2, 3, 1).reshape(B, H * W, C)  # [B, H*W, 5 + num_classes]
 
-    all_detections= []
+    # Generate grid coordinates
+    grid_y, grid_x = torch.meshgrid(
+        torch.arange(H, device=preds.device),
+        torch.arange(W, device=preds.device),
+        indexing='ij'
+    )
+    grid_x = grid_x.reshape(-1)
+    grid_y = grid_y.reshape(-1)
+
+    all_detections = []
     for b in range(B):
-        pred= preds[b]
-        
-        bboxes = pred[:, :4]
-        obj_scores= pred[:, 4]
-        cls_scores= pred[:, 5:]
+        pred = preds[b]  # [H*W, 5 + num_classes]
 
-        scores = obj_scores.unsqueeze(1) * cls_scores  # shape: [H*W, num_classes]
+        bboxes = pred[:, :4]  # [cx, cy, w, h]
+        obj_scores = pred[:, 4]
+        cls_scores = pred[:, 5:]
 
-        # Get the best class and its score
-        conf, class_ids = scores.max(dim=1)  # shape: [H*W]
+        scores = obj_scores.unsqueeze(1) * cls_scores  # [H*W, num_classes]
+        conf, class_ids = scores.max(dim=1)
 
-
-        mask= conf >= conf_thresh
-        bboxes= bboxes[mask]
-        conf= conf[mask]
-        class_ids= class_ids[mask]
+        mask = conf >= conf_thresh
+        bboxes = bboxes[mask]
+        conf = conf[mask]
+        class_ids = class_ids[mask]
+        grid_x_masked = grid_x[mask]
+        grid_y_masked = grid_y[mask]
 
         if bboxes.shape[0] == 0:
             all_detections.append(torch.empty((0, 6), device=preds.device))
             continue
 
-        boxes_xyxy = torch.stack([torch.tensor(xywh_to_xyxy(box), device=box.device) for box in bboxes], dim=0)
+        # Decode cx, cy relative to grid
+        cx = (bboxes[:, 0] + grid_x_masked) / W
+        cy = (bboxes[:, 1] + grid_y_masked) / H
+        w = bboxes[:, 2] / W
+        h = bboxes[:, 3] / H
 
-        # Final format: [x1, y1, x2, y2, score, class_id]
+        x1 = cx - w / 2
+        y1 = cy - h / 2
+        x2 = cx + w / 2
+        y2 = cy + h / 2
+
+        boxes_xyxy = torch.stack([x1, y1, x2, y2], dim=1)
+
         detections = torch.cat([
             boxes_xyxy,
             conf.unsqueeze(1),
@@ -162,6 +181,7 @@ def extract_pred(preds, conf_thresh=0.5):
         all_detections.append(detections)
 
     return all_detections
+
 
 def nms(bboxes, scores, iou_threshold=0.5):
     """
