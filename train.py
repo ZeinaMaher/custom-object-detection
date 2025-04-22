@@ -60,7 +60,7 @@ def validate_one_epoch(model, dataloader, criterion, device):
 def train(model_config, data_config, criterion, optimizer ,device, num_epochs, lr, batch_size, file_path=None ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = ModelBuilder.from_config("./configs/simple_model.yaml").to(device)
+    model = ModelBuilder.from_config("./configs/model_v1.yaml").to(device)
 
     augmentations = CustomAugmentations(p_flip=1.0)
     train_dataset = CustomDataset('./dataset/filtered_data/train/images',
@@ -85,16 +85,16 @@ def train(model_config, data_config, criterion, optimizer ,device, num_epochs, l
         print(f"Epoch [{epoch+1}/{num_epochs}] | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
         if epoch == 0:
-            save_checkpoint(model, optimizer, epoch,val_loss, 'checkpoints/model_epoch_{epoch+1}.pth')
+            save_checkpoint(model, optimizer, epoch,val_loss, f'checkpoints/model_epoch_{epoch+1}.pth')
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            save_checkpoint(model, optimizer, epoch, val_loss, 'checkpoints/best_model.pth')
+            save_checkpoint(model, optimizer, epoch, val_loss, 'checkpoints/Exp1_best_model.pth')
             print(f"Best model saved at epoch {epoch+1} with val loss {val_loss:.4f}")
 
 
 if __name__ == "__main__":
     criterion = DetectionLoss()
-    train(model_config= '.\configs\simple_model.yaml',
+    train(model_config= '.\configs\model_v1.yaml',
           data_config='', criterion=criterion, optimizer=None,
           device=None,  num_epochs=10, lr = 1e-3, batch_size=8 )

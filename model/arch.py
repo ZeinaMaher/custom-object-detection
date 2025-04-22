@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchsummary import summary
+import torchvision.models as models
+
 
 class DetectionHead(nn.Module):
     """Predicts single box + class scores per grid cell (no anchors)"""
@@ -54,8 +56,31 @@ class ModelBuilder:
         if config["type"] == "sequential":
             layers = [cls.build_layer(layer) for layer in config["layers"]]
             return nn.Sequential(*layers)
+        elif config["type"] in ["resnet18", "resnet34", "resnet50"]:  # Explicit check
+            return cls.get_resnet_backbone(config["type"])
         else:
             raise ValueError(f"Unsupported backbone type: {config['type']}")
+    
+    def get_resnet_backbone(cls,name='resnet18', pretrained=True, freeze=True):
+        if name == 'resnet18':
+            backbone = models.resnet18(pretrained=pretrained)
+        elif name == 'resnet34':
+            backbone = models.resnet34(pretrained=pretrained)
+        elif name == 'resnet50':
+            backbone = models.resnet50(pretrained=pretrained)
+        else:
+            raise ValueError("Unsupported backbone")
+
+        # Remove the classifier head
+        layers = list(backbone.children())[:-2]  # Keep up to last conv block
+        backbone = nn.Sequential(*layers)
+
+        if freeze:
+            for param in backbone.parameters():
+                param.requires_grad = False
+
+        return backbone
+
 
     @classmethod
     def from_config(cls, config_path):
@@ -70,6 +95,8 @@ class ModelBuilder:
 # Helper functions (for testing/debugging)
 def test_model_shapes(model, input_size=(3, 480, 480)):
     """Verifies input/output shapes"""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)   
     summary(model, input_size=input_size)
 
 def visualize_architecture(model):
