@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from model.arch import ModelBuilder
 from model.loss import DetectionLoss
 from data.loader import CustomDataset, collate_fn
+from data.augment import CustomAugmentations
 from utils.utils import create_target_map , save_checkpoint
 
 def train_one_epoch(model, dataloader, optimizer, criterion, device):
@@ -61,7 +62,10 @@ def train(model_config, data_config, criterion, optimizer ,device, num_epochs, l
 
     model = ModelBuilder.from_config("./configs/simple_model.yaml").to(device)
 
-    train_dataset = CustomDataset('./dataset/filtered_data/train/images', './dataset/filtered_data/train/labels', shuffle=True, normalize=True)
+    augmentations = CustomAugmentations(p_flip=1.0)
+    train_dataset = CustomDataset('./dataset/filtered_data/train/images',
+                                  './dataset/filtered_data/train/labels',
+                                   shuffle=True, normalize=True, augmentations=augmentations)
     val_dataset = CustomDataset('./dataset/filtered_data/valid/images',
                                 './dataset/filtered_data/valid/labels',
                                 shuffle=False, normalize=True)
