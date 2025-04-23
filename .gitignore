@@ -1,7 +1,6 @@
 /venv
 /dataset
 /vis
-/filtered_data
 
 /checkpoints
 *.pth
