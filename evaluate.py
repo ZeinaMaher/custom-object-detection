@@ -1,4 +1,5 @@
 import torch
+import argparse
 from tqdm import tqdm
 from model.arch import ModelBuilder
 from torch.utils.data import DataLoader
@@ -25,7 +26,6 @@ def evaluate(model, dataloader, device, num_classes, conf_threshold=0.5, iou_thr
             all_preds.extend(batch_detections)  # Assuming detections are in the format [x1, y1, x2, y2, score, class_id]
             all_gts.extend(gt_boxes)  # Store ground truth labels
 
-            # print(f"Predictions for {filenames}: {batch_detections}")  # For debugging/inspection
 
     # Flatten lists of predictions and ground truths
     # only if all_preds is a list of list of tensors
@@ -42,25 +42,41 @@ def evaluate(model, dataloader, device, num_classes, conf_threshold=0.5, iou_thr
     print(f"Overall F1: {metrics['overall']['f1']}")
     print(f"Overall mAP: {metrics['overall']['mAP']}")
 
-    # Optionally print per-class metrics
     for i, class_metrics in enumerate(metrics['per_class']):
         print(f"Class {i} - Precision: {class_metrics['precision']}, Recall: {class_metrics['recall']}, F1: {class_metrics['f1']}, AP: {class_metrics['AP']}")
 
+def get_args():
+    parser = argparse.ArgumentParser(description="Object Detector Evaluation Script")
+
+    parser.add_argument('--config', type=str, required=True, help='Path to model config YAML file')
+    parser.add_argument('--checkpoint', type=str, required=True, help='Path to the trained model checkpoint (.pth file)')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for evaluation')
+    parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='Device to use for evaluation (cuda or cpu)')
+    parser.add_argument('--num_workers', type=int, default=4, help='Number of DataLoader workers')
+    parser.add_argument('--images', type=str, required=True, help='Path to images directory')
+    parser.add_argument('--labels', type=str, required=True, help='Path to YOLO-format label directory')
+    parser.add_argument('--num_classes', type=int, required=True, help='Number of classes in the model')
+    parser.add_argument('--conf_thresh', type=float, default=0.5, help='Confidence threshold for predictions')
+    parser.add_argument('--iou_thresh', type=float, default=0.5, help='IoU threshold for NMS')
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    config_path = "configs/simple_model.yaml"
-    check_path = "./model_epoch_1.pth"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    args = get_args()
 
-    model, checkpoint = load_model_from_checkpoint(config_path=config_path, checkpoint_path=check_path, device=device)
+    model, checkpoint = load_model_from_checkpoint(config_path=args.config, checkpoint_path=args.checkpoint, device=args.device)
 
-    val_dataset = CustomDataset(
-        img_dir="./dataset/samples/valid/images",
-        labels_dir="./dataset/samples/valid/labels",
+    dataset = CustomDataset(
+        img_dir=args.images,
+        labels_dir=args.labels,
         shuffle=False,
         normalize=True
     )
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=4, collate_fn=collate_fn)
 
-    # Set the number of classes based on your dataset
-    num_classes = 2  # Adjust accordingly
-    evaluate(model, val_loader, device, num_classes, 0)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False,
+                            num_workers=args.num_workers, collate_fn=collate_fn)
+
+    evaluate(model= model, dataloader=dataloader , device= args.device,
+             num_classes=args.num_classes, conf_threshold= args.conf_thresh,
+             iou_threshold= args.iou_thresh)
